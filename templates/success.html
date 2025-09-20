@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Payment Success</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container success">
+        <img src="{{ url_for('static', filename='images/tick.png') }}" alt="success">
+        <h2>Payment Successful!</h2>
+        <p>Thank you, {{ name }}. Your payment of ₹{{ amount }} has been processed.</p>
+        <a href="/">Go Back</a>
+    </div>
+</body>
+</html>

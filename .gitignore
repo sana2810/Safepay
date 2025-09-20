@@ -1,0 +1,13 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# IDEs
+.idea/
+
+# Data (optional, if too big)
+data/
+
+# Logs
+*.log
