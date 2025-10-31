@@ -1,0 +1,77 @@
+body {
+    background-color:  #bbe2f1;
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+#logo {
+    display: block;
+    height: 100px;
+    width: auto;
+    margin: 20px auto; /* auto horizontally centers block elements */
+}
+
+#form {
+    background-color: white;
+    display: block;
+    width: 90%;              /* take 90% of screen width */
+    max-width: 400px;        /* don’t go beyond 400px on large screens */
+    margin: 20px auto;       /* center horizontally */
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    text-align: left;
+    box-sizing: border-box;  /* keeps padding inside width */
+}
+
+h3 {
+    color:  rgb(34, 113, 169);
+    margin-bottom: 15px;
+}
+
+p {
+    margin: 10px 0 5px;
+    font-weight: bold;
+    color: #333;
+}
+
+input {
+    width: 100%;             /* full width inside the form */
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.3s;
+    box-sizing: border-box;
+}
+
+input:focus {
+    border-color:  rgb(34, 113, 169);
+    box-shadow: 0 0 5px rgba(128, 0, 128, 0.3);
+}
+
+img {
+    height: 40px;
+    width: auto;
+    margin: 5px 8px;
+    vertical-align: middle;
+}
+
+button {
+    background-color: rgb(34, 113, 169);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    margin-top: 15px;
+    width: 100px;
+    margin-left: 0px;
+    display: block
+}
+
+

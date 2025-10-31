@@ -6,7 +6,7 @@
     <title>Transaction Failed</title>
     <style>
         body {
-            background-color:  #bbe2f1; 
+            background-color:  #bbe2f1;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -46,17 +46,18 @@
         a:hover {
             background: darkred;
         }
-        p{
+
+        p {
             font-size: 20px;
         }
     </style>
 </head>
 <body>
     <div class="failure-box">
-        <img src="/images/cross.png">
+        <img src="{{ url_for('static', filename='images/cross.png') }}" alt="Failed">
         <h2>Transaction Failed</h2>
         <p>Unfortunately, your payment could not be processed.</p>
-        <a href="index.html">Try Again</a>
+        <a href="{{ url_for('index') }}">Try Again</a>
     </div>
 </body>
 </html>

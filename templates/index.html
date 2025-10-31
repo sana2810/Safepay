@@ -5,43 +5,44 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SafePay</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 
 <body>
     <div id="form">
-        <img id="logo" src="/images/logo.png">
+        <img id="logo" src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo">
 
-        <!-- Wrap everything inside a form -->
-        <form action="success.html" method="get">
+        <!-- Form sending POST request to Flask backend -->
+        <form action="{{ url_for('process_payment') }}" method="POST">
             <h3>Customer Details</h3>
 
             <p>Client ID</p>
-            <input type="text" placeholder="Enter Your ID" required>
+            <input type="text" name="client_id" placeholder="Enter Your ID" required>
 
             <p>Full Name</p>
-            <input type="text" placeholder="Enter Your Name" required>
+            <input type="text" name="name" placeholder="Enter Your Name" required>
 
             <p>Email</p>
-            <input type="email" placeholder="Enter Your Email" required>
+            <input type="email" name="email" placeholder="Enter Your Email" required>
 
             <p>Phone Number</p>
-            <input type="tel" placeholder="Enter Your Phone Number" pattern="[0-9]{10}" maxlength="10" required>
+            <input type="tel" name="phone" placeholder="Enter Your Phone Number" pattern="[0-9]{10}" maxlength="10" required>
 
             <h3>Payment Details</h3>
             <p>Amount (&#8377;)</p>
-            <input type="text" placeholder="₹ 1000" pattern="[0-9]+" inputmode="numeric" required>
+            <input type="text" name="amount" placeholder="₹ 1000" pattern="[0-9]+" inputmode="numeric" required>
 
             <p>Accepted Cards</p>
             <img src="https://upload.wikimedia.org/wikipedia/commons/b/b7/MasterCard_Logo.svg" alt="MasterCard">
             <img src="https://cdn4.iconfinder.com/data/icons/flat-brand-logo-2/512/visa-512.png" alt="Visa">
-            <img src="/images/amex" alt="Amex">
+            <img src="{{ url_for('static', filename='images/amex.png') }}" alt="Amex">
 
             <p>Card Type</p>
-            <input type="text" placeholder="Debit/Credit" required>
+            <input type="text" name="card_type" placeholder="Debit/Credit" required>
 
             <p>Card Number</p>
             <input type="text"
+                name="card_number"
                 placeholder="1234 5678 9012 3456"
                 pattern="[0-9]{4} [0-9]{4} [0-9]{4} [0-9]{4}"
                 inputmode="numeric"
@@ -49,20 +50,16 @@
                 required>
 
             <p>Expiry (MM/YY)</p>
-            <input type="text" placeholder="MM/YY" pattern="(0[1-9]|1[0-2])\/\d{2}" required>
+            <input type="text" name="expiry" placeholder="MM/YY" pattern="(0[1-9]|1[0-2])\/\d{2}" required>
 
             <p>CVV</p>
             <input type="password" id="cvv" name="cvv" maxlength="3" pattern="\d{3}" inputmode="numeric"
                 placeholder="***" required>
 
             <br><br>
-            <!-- Success button -->
+            <!-- Submit button -->
             <button type="submit">Submit</button>
-
-            <!-- Failure button (links to failure page) -->
-            <a href="failure.html" class="fail-btn">Simulate Failure</a>
         </form>
     </div>
 </body>
-
 </html>

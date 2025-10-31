@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,7 +8,6 @@
         body {
             background-color: #bbe2f1;
             display: flex;
-            flex-direction: column;
             justify-content: center;
             align-items: center;
             height: 100vh;
@@ -23,29 +21,49 @@
             padding: 30px;
             border-radius: 15px;
             box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+            width: 90%;
+            max-width: 400px;
         }
 
-        .tick {
-            font-size: 80px;
-            background-color: rgb(34, 113, 169);
-            color: white;
+        .success-box img {
+            height: 80px;
+            width: auto;
+            margin-bottom: 15px;
         }
 
         h2 {
             color: green;
+            margin: 10px 0;
         }
-        p{
-            font-size: 20px;
+
+        p {
+            font-size: 18px;
+            color: #333;
+            margin: 10px 0 20px;
+        }
+
+        a {
+            display: inline-block;
+            text-decoration: none;
+            background: green;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+
+        a:hover {
+            background: darkgreen;
         }
     </style>
 </head>
-
 <body>
     <div class="success-box">
-        <img src="/images/tick.png">
+        <img src="{{ url_for('static', filename='images/tick.png') }}" alt="Success">
         <h2>Transaction Successful</h2>
         <p>Thank you! Your payment was processed successfully.</p>
+        <a href="{{ url_for('index') }}">Go Back</a>
     </div>
 </body>
-
 </html>
