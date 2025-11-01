@@ -29,7 +29,7 @@ def normalize_expiry(exp):
         return exp
 
 df['expires'] = df['expires'].astype(str).apply(normalize_expiry).str.strip()
-
+print(df.head())
 # ----------------------------
 # Encryption Utilities
 # ----------------------------
