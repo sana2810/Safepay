@@ -22,7 +22,7 @@
             border-radius: 15px;
             box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
             width: 90%;
-            max-width: 400px;
+            max-width: 420px;
         }
 
         .success-box img {
@@ -37,12 +37,19 @@
         }
 
         p {
-            font-size: 18px;
+            font-size: 16px;
             color: #333;
-            margin: 10px 0 20px;
+            margin: 8px 0;
         }
 
-        a {
+        .receipt {
+            text-align: left;
+            margin-top: 20px;
+            border-top: 1px solid #ccc;
+            padding-top: 10px;
+        }
+
+        button, a {
             display: inline-block;
             text-decoration: none;
             background: green;
@@ -51,9 +58,12 @@
             border-radius: 8px;
             font-weight: bold;
             transition: background 0.3s;
+            margin: 10px 5px;
+            border: none;
+            cursor: pointer;
         }
 
-        a:hover {
+        button:hover, a:hover {
             background: darkgreen;
         }
     </style>
@@ -62,7 +72,17 @@
     <div class="success-box">
         <img src="{{ url_for('static', filename='images/tick.png') }}" alt="Success">
         <h2>Transaction Successful</h2>
-        <p>Thank you! Your payment was processed successfully.</p>
+        <p>Thank you, {{ name }}!</p>
+        <p>Your payment was processed successfully.</p>
+
+        <div class="receipt">
+            <p><strong>Client ID:</strong> {{ client_id }}</p>
+            <p><strong>Amount Paid:</strong> ₹{{ amount }}</p>
+            <p><strong>Card Ending:</strong> **** **** **** {{ card_last4 }}</p>
+            <p><strong>Date:</strong> {{ date }}</p>
+        </div>
+
+        <button onclick="window.print()">🖨️ Print Receipt</button>
         <a href="{{ url_for('index') }}">Go Back</a>
     </div>
 </body>

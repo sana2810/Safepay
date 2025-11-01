@@ -1,6 +1,6 @@
 import pandas as pd
 
-csv_path = r"C:\Samyah\datasets\cards_data.csv"
+csv_path = r"C:\Users\sana2\Downloads\cards_data.csv"
 df = pd.read_csv(csv_path)
 
 df = df.head(50)
@@ -23,5 +23,5 @@ def normalize_expiry(exp):
         return exp
 df['expires'] = df['expires'].astype(str).apply(normalize_expiry).str.strip()
 
-df.to_csv(r"C:\Samyah\datasets\transactions_small.csv", index=False)
+df.to_csv(r"C:\Users\sana2\Downloads\transactions_small.csv", index=False)
 print("transactions_small.csv saved with normalized fields!")

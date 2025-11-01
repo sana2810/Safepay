@@ -3,13 +3,14 @@ from cryptography.fernet import Fernet
 import hashlib
 import rsa
 import pandas as pd
+from datetime import datetime
 
 app = Flask(__name__)
 
 # ----------------------------
 # Load dataset
 # ----------------------------
-df = pd.read_csv(r"C:\Samyah\datasets\transactions_small.csv")
+df = pd.read_csv(r"C:\Users\sana2\Downloads\transactions_small.csv")
 
 # ----------------------------
 # Normalize dataset columns
@@ -29,10 +30,8 @@ def normalize_expiry(exp):
 
 df['expires'] = df['expires'].astype(str).apply(normalize_expiry).str.strip()
 
-print(df.head())
-
 # ----------------------------
-# 1. Symmetric Encryption (Fernet / AES)
+# Encryption Utilities
 # ----------------------------
 fernet_key = Fernet.generate_key()
 cipher = Fernet(fernet_key)
@@ -43,9 +42,6 @@ def encrypt_symmetric(data: str) -> str:
 def decrypt_symmetric(token: str) -> str:
     return cipher.decrypt(token.encode()).decode()
 
-# ----------------------------
-# 2. Asymmetric Encryption (RSA)
-# ----------------------------
 (public_key, private_key) = rsa.newkeys(512)
 
 def encrypt_asymmetric(data: str) -> str:
@@ -55,9 +51,6 @@ def decrypt_asymmetric(token_hex: str) -> str:
     token = bytes.fromhex(token_hex)
     return rsa.decrypt(token, private_key).decode()
 
-# ----------------------------
-# 3. Hashing (SHA-256)
-# ----------------------------
 def hash_data(data: str) -> str:
     return hashlib.sha256(data.encode()).hexdigest()
 
@@ -71,7 +64,6 @@ def index():
 @app.route('/process_payment', methods=['POST'])
 def process_payment():
     try:
-        # Read input
         client_id = int(request.form['client_id'])
         name = request.form['name'].strip()
         email = request.form['email'].strip()
@@ -83,8 +75,25 @@ def process_payment():
         expiry = normalize_expiry(request.form['expiry'].strip())
 
         # ----------------------------
-        # Verification against dataset
+        # Validation & Matching
         # ----------------------------
+        if client_id not in df['client_id'].values:
+            return render_template('failure.html', error="Client ID not found.")
+
+        record = df[df['client_id'] == client_id]
+
+        if card_number not in record['card_number'].values:
+            return render_template('failure.html', error="Invalid card number.")
+
+        if cvv not in record['cvv'].values:
+            return render_template('failure.html', error="Invalid CVV entered.")
+
+        if expiry not in record['expires'].values:
+            return render_template('failure.html', error="Card expired or invalid expiry date.")
+
+        if card_type not in record['card_type'].values:
+            return render_template('failure.html', error="Incorrect card type for this client.")
+
         match = df[
             (df['client_id'] == client_id) &
             (df['card_number'] == card_number) &
@@ -101,14 +110,12 @@ def process_payment():
         # ----------------------------
         encrypted_card_sym = encrypt_symmetric(card_number)
         encrypted_cvv_sym = encrypt_symmetric(cvv)
-
         encrypted_card_rsa = encrypt_asymmetric(card_number)
         encrypted_cvv_rsa = encrypt_asymmetric(cvv)
-
         card_hash = hash_data(card_number)
         cvv_hash = hash_data(cvv)
 
-        print("Payment verified and processed successfully!")
+        print("✅ Payment verified and processed successfully!")
         print(f"Encrypted Card (Symmetric): {encrypted_card_sym}")
         print(f"Encrypted CVV (Symmetric): {encrypted_cvv_sym}")
         print(f"Encrypted Card (RSA): {encrypted_card_rsa}")
@@ -116,7 +123,18 @@ def process_payment():
         print(f"Card Hash: {card_hash}")
         print(f"CVV Hash: {cvv_hash}")
 
-        return render_template('success.html', name=name, amount=amount)
+        # ----------------------------
+        # Generate Receipt Info
+        # ----------------------------
+        receipt_info = {
+            "name": name,
+            "client_id": client_id,
+            "amount": amount,
+            "card_last4": card_number[-4:],
+            "date": datetime.now().strftime("%d-%m-%Y %H:%M:%S")
+        }
+
+        return render_template('success.html', **receipt_info)
 
     except Exception as e:
         print("Error:", str(e))
