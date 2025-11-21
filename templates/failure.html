@@ -40,6 +40,12 @@
             margin-top: 10px;
         }
 
+        .attempt-msg {
+            color: #b30000;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
         a, button {
             display: inline-block;
             background: red;
@@ -81,25 +87,31 @@
             <p class="error">{{ error }}</p>
         {% endif %}
 
-        <!-- Retry button -->
+        {% if not locked %}
+            {% if attempts_left == 2 %}
+                <p class="attempt-msg">You have <b>2</b> attempts left.</p>
+            {% elif attempts_left == 1 %}
+                <p class="attempt-msg">You have <b>1</b> attempt left.</p>
+            {% endif %}
+        {% endif %}
+
         <a id="retryBtn" href="{{ url_for('index') }}">Try Again</a>
 
-        <!-- Lockout countdown -->
         {% if locked %}
             <p id="countdown"></p>
         {% endif %}
     </div>
 
-    <!-- JavaScript -->
     <script>
-        // Convert server variables into JS safely
         var locked = {{ locked|tojson }};
         var remaining = {{ remaining|tojson }};
 
         if (locked === true) {
             var btn = document.getElementById("retryBtn");
-            if (btn) btn.style.pointerEvents = "none";  // disable click
-            if (btn) btn.style.background = "#aa5555";
+            if (btn) {
+                btn.style.pointerEvents = "none";
+                btn.style.background = "#aa5555";
+            }
 
             var countdownEl = document.getElementById("countdown");
             countdownEl.innerHTML = "You can try again in " + remaining + " seconds";

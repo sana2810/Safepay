@@ -1,19 +1,12 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, session
 from cryptography.fernet import Fernet
 import hashlib
 import rsa
 import pandas as pd
-from datetime import datetime
-from time import time
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
-
-# ----------------------------
-# Failed Attempt Tracking (3 attempts → 1 min lockout)
-# ----------------------------
-failed_attempts = {}   # {client_id: {"count": x, "lockout": timestamp}}
-MAX_ATTEMPTS = 3
-LOCKOUT_TIME = 60  # seconds
+app.secret_key = "supersecretkey123"   # REQUIRED for session
 
 # ----------------------------
 # Load dataset
@@ -27,6 +20,7 @@ df['card_number'] = df['card_number'].astype(str).str.replace(" ", "")
 df['cvv'] = df['cvv'].astype(str).str.strip()
 df['card_type'] = df['card_type'].astype(str).str.strip().str.lower()
 
+
 def normalize_expiry(exp):
     try:
         month, year = exp.split('/')
@@ -36,8 +30,9 @@ def normalize_expiry(exp):
     except:
         return exp
 
+
 df['expires'] = df['expires'].astype(str).apply(normalize_expiry).str.strip()
-print(df.head())
+
 
 # ----------------------------
 # Encryption Utilities
@@ -45,23 +40,30 @@ print(df.head())
 fernet_key = Fernet.generate_key()
 cipher = Fernet(fernet_key)
 
+
 def encrypt_symmetric(data: str) -> str:
     return cipher.encrypt(data.encode()).decode()
+
 
 def decrypt_symmetric(token: str) -> str:
     return cipher.decrypt(token.encode()).decode()
 
+
 (public_key, private_key) = rsa.newkeys(512)
+
 
 def encrypt_asymmetric(data: str) -> str:
     return rsa.encrypt(data.encode(), public_key).hex()
+
 
 def decrypt_asymmetric(token_hex: str) -> str:
     token = bytes.fromhex(token_hex)
     return rsa.decrypt(token, private_key).decode()
 
+
 def hash_data(data: str) -> str:
     return hashlib.sha256(data.encode()).hexdigest()
+
 
 # ----------------------------
 # Routes
@@ -70,10 +72,36 @@ def hash_data(data: str) -> str:
 def index():
     return render_template('index.html')
 
+
 @app.route('/process_payment', methods=['POST'])
 def process_payment():
     try:
-        # Read form inputs
+        # ----------------------------
+        # LOCKOUT CHECK
+        # ----------------------------
+        lock_until = session.get("lock_until")
+
+        if lock_until:
+            now = datetime.now()
+            lock_time = datetime.strptime(lock_until, "%Y-%m-%d %H:%M:%S")
+
+            if now < lock_time:
+                remaining = int((lock_time - now).total_seconds())
+                return render_template(
+                    "failure.html",
+                    error="Too many attempts! You are locked out.",
+                    locked=True,
+                    remaining=remaining,
+                    attempts_left=0
+                )
+            else:
+                # lock expired
+                session["attempts"] = 0
+                session["lock_until"] = None
+
+        # ----------------------------
+        # Extract form data
+        # ----------------------------
         client_id = int(request.form['client_id'])
         name = request.form['name'].strip()
         email = request.form['email'].strip()
@@ -85,57 +113,24 @@ def process_payment():
         expiry = normalize_expiry(request.form['expiry'].strip())
 
         # ----------------------------
-        # Check Lockout Status (server-side enforcement)
-        # ----------------------------
-        now = time()
-        if client_id in failed_attempts:
-            info = failed_attempts[client_id]
-            if info.get("count", 0) >= MAX_ATTEMPTS:
-                # still locked?
-                if now < info.get("lockout", 0):
-                    remaining = int(info["lockout"] - now)
-                    return render_template('failure.html',
-                                           error=f"Too many failed attempts. Try again in {remaining} seconds.",
-                                           locked=True,
-                                           remaining=remaining)
-                else:
-                    # lockout expired -> reset
-                    failed_attempts[client_id] = {"count": 0, "lockout": 0}
-
-        # helper to register failure and return template with proper locked flag
-        def register_failure(msg):
-            failed_attempts.setdefault(client_id, {"count": 0, "lockout": 0})
-            failed_attempts[client_id]["count"] += 1
-
-            # If hits max, set lockout timestamp
-            if failed_attempts[client_id]["count"] >= MAX_ATTEMPTS:
-                failed_attempts[client_id]["lockout"] = time() + LOCKOUT_TIME
-                remaining = int(failed_attempts[client_id]["lockout"] - time())
-                return render_template('failure.html', error=msg, locked=True, remaining=remaining)
-
-            # Not locked yet
-            remaining = max(0, int(failed_attempts[client_id]["lockout"] - time())) if failed_attempts[client_id]["lockout"] else 0
-            return render_template('failure.html', error=msg, locked=False, remaining=remaining)
-
-        # ----------------------------
         # Validation & Matching
         # ----------------------------
         if client_id not in df['client_id'].values:
-            return register_failure("Client ID not found.")
+            return handle_failure("Client ID not found.")
 
         record = df[df['client_id'] == client_id]
 
         if card_number not in record['card_number'].values:
-            return register_failure("Invalid card number.")
+            return handle_failure("Invalid card number.")
 
         if cvv not in record['cvv'].values:
-            return register_failure("Invalid CVV entered.")
+            return handle_failure("Invalid CVV.")
 
         if expiry not in record['expires'].values:
-            return register_failure("Card expired or invalid expiry date.")
+            return handle_failure("Invalid or expired date.")
 
         if card_type not in record['card_type'].values:
-            return register_failure("Incorrect card type for this client.")
+            return handle_failure("Incorrect card type.")
 
         match = df[
             (df['client_id'] == client_id) &
@@ -146,15 +141,15 @@ def process_payment():
         ]
 
         if match.empty:
-            return register_failure("Invalid payment details!")
+            return handle_failure("Invalid payment details!")
 
         # ----------------------------
-        # Reset attempts on successful payment
+        # SUCCESS → RESET ATTEMPTS
         # ----------------------------
-        failed_attempts[client_id] = {"count": 0, "lockout": 0}
+        session["attempts"] = 0
 
         # ----------------------------
-        # Encryption & Hashing
+        # Encryption & Logging
         # ----------------------------
         encrypted_card_sym = encrypt_symmetric(card_number)
         encrypted_cvv_sym = encrypt_symmetric(cvv)
@@ -163,7 +158,7 @@ def process_payment():
         card_hash = hash_data(card_number)
         cvv_hash = hash_data(cvv)
 
-        print("✅ Payment verified and processed successfully!")
+        print("✅ Payment verified successfully!")
         print(f"Encrypted Card (Symmetric): {encrypted_card_sym}")
         print(f"Encrypted CVV (Symmetric): {encrypted_cvv_sym}")
         print(f"Encrypted Card (RSA): {encrypted_card_rsa}")
@@ -172,7 +167,7 @@ def process_payment():
         print(f"CVV Hash: {cvv_hash}")
 
         # ----------------------------
-        # Generate Receipt Info
+        # Receipt
         # ----------------------------
         receipt_info = {
             "name": name,
@@ -186,8 +181,46 @@ def process_payment():
 
     except Exception as e:
         print("Error:", str(e))
-        # if exception occurs before client_id parsed, we can't check lock state; show generic failure
-        return render_template('failure.html', error=str(e), locked=False, remaining=0)
+        return handle_failure(f"Unexpected error: {str(e)}")
 
+
+# ----------------------------
+# FAILURE HANDLER
+# ----------------------------
+def handle_failure(message):
+    """Handles failed attempts + lockout system"""
+
+    attempts = session.get("attempts", 0)
+    attempts += 1
+    session["attempts"] = attempts
+
+    # LOCKOUT TRIGGER
+    if attempts >= 3:
+        lock_time = datetime.now() + timedelta(seconds=60)
+        session["lock_until"] = lock_time.strftime("%Y-%m-%d %H:%M:%S")
+
+        return render_template(
+            "failure.html",
+            error="Too many attempts! You are locked out.",
+            locked=True,
+            remaining=60,
+            attempts_left=0
+        )
+
+    # OTHERWISE SHOW ATTEMPTS LEFT
+    attempts_left = 3 - attempts
+
+    return render_template(
+        "failure.html",
+        error=message,
+        locked=False,
+        remaining=0,
+        attempts_left=attempts_left
+    )
+
+
+# ----------------------------
+# Run Server
+# ----------------------------
 if __name__ == '__main__':
     app.run(debug=True)
