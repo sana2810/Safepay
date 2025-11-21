@@ -4,8 +4,16 @@ import hashlib
 import rsa
 import pandas as pd
 from datetime import datetime
+from time import time
 
 app = Flask(__name__)
+
+# ----------------------------
+# Failed Attempt Tracking (3 attempts → 1 min lockout)
+# ----------------------------
+failed_attempts = {}   # {client_id: {"count": x, "lockout": timestamp}}
+MAX_ATTEMPTS = 3
+LOCKOUT_TIME = 60  # seconds
 
 # ----------------------------
 # Load dataset
@@ -30,6 +38,7 @@ def normalize_expiry(exp):
 
 df['expires'] = df['expires'].astype(str).apply(normalize_expiry).str.strip()
 print(df.head())
+
 # ----------------------------
 # Encryption Utilities
 # ----------------------------
@@ -64,6 +73,7 @@ def index():
 @app.route('/process_payment', methods=['POST'])
 def process_payment():
     try:
+        # Read form inputs
         client_id = int(request.form['client_id'])
         name = request.form['name'].strip()
         email = request.form['email'].strip()
@@ -75,24 +85,57 @@ def process_payment():
         expiry = normalize_expiry(request.form['expiry'].strip())
 
         # ----------------------------
+        # Check Lockout Status (server-side enforcement)
+        # ----------------------------
+        now = time()
+        if client_id in failed_attempts:
+            info = failed_attempts[client_id]
+            if info.get("count", 0) >= MAX_ATTEMPTS:
+                # still locked?
+                if now < info.get("lockout", 0):
+                    remaining = int(info["lockout"] - now)
+                    return render_template('failure.html',
+                                           error=f"Too many failed attempts. Try again in {remaining} seconds.",
+                                           locked=True,
+                                           remaining=remaining)
+                else:
+                    # lockout expired -> reset
+                    failed_attempts[client_id] = {"count": 0, "lockout": 0}
+
+        # helper to register failure and return template with proper locked flag
+        def register_failure(msg):
+            failed_attempts.setdefault(client_id, {"count": 0, "lockout": 0})
+            failed_attempts[client_id]["count"] += 1
+
+            # If hits max, set lockout timestamp
+            if failed_attempts[client_id]["count"] >= MAX_ATTEMPTS:
+                failed_attempts[client_id]["lockout"] = time() + LOCKOUT_TIME
+                remaining = int(failed_attempts[client_id]["lockout"] - time())
+                return render_template('failure.html', error=msg, locked=True, remaining=remaining)
+
+            # Not locked yet
+            remaining = max(0, int(failed_attempts[client_id]["lockout"] - time())) if failed_attempts[client_id]["lockout"] else 0
+            return render_template('failure.html', error=msg, locked=False, remaining=remaining)
+
+        # ----------------------------
         # Validation & Matching
         # ----------------------------
         if client_id not in df['client_id'].values:
-            return render_template('failure.html', error="Client ID not found.")
+            return register_failure("Client ID not found.")
 
         record = df[df['client_id'] == client_id]
 
         if card_number not in record['card_number'].values:
-            return render_template('failure.html', error="Invalid card number.")
+            return register_failure("Invalid card number.")
 
         if cvv not in record['cvv'].values:
-            return render_template('failure.html', error="Invalid CVV entered.")
+            return register_failure("Invalid CVV entered.")
 
         if expiry not in record['expires'].values:
-            return render_template('failure.html', error="Card expired or invalid expiry date.")
+            return register_failure("Card expired or invalid expiry date.")
 
         if card_type not in record['card_type'].values:
-            return render_template('failure.html', error="Incorrect card type for this client.")
+            return register_failure("Incorrect card type for this client.")
 
         match = df[
             (df['client_id'] == client_id) &
@@ -103,7 +146,12 @@ def process_payment():
         ]
 
         if match.empty:
-            return render_template('failure.html', error="Invalid payment details!")
+            return register_failure("Invalid payment details!")
+
+        # ----------------------------
+        # Reset attempts on successful payment
+        # ----------------------------
+        failed_attempts[client_id] = {"count": 0, "lockout": 0}
 
         # ----------------------------
         # Encryption & Hashing
@@ -138,7 +186,8 @@ def process_payment():
 
     except Exception as e:
         print("Error:", str(e))
-        return render_template('failure.html', error=str(e))
+        # if exception occurs before client_id parsed, we can't check lock state; show generic failure
+        return render_template('failure.html', error=str(e), locked=False, remaining=0)
 
 if __name__ == '__main__':
     app.run(debug=True)

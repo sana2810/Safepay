@@ -40,7 +40,7 @@
             margin-top: 10px;
         }
 
-        a {
+        a, button {
             display: inline-block;
             background: red;
             color: white;
@@ -49,10 +49,25 @@
             border-radius: 8px;
             margin-top: 15px;
             font-weight: bold;
+            border: none;
+            cursor: pointer;
         }
 
-        a:hover {
+        a:hover:enabled,
+        button:hover:enabled {
             background: darkred;
+        }
+
+        a:disabled,
+        button:disabled {
+            background: #aa5555;
+            cursor: not-allowed;
+        }
+
+        #countdown {
+            margin-top: 12px;
+            font-weight: bold;
+            color: darkred;
         }
     </style>
 </head>
@@ -61,17 +76,45 @@
         <img src="{{ url_for('static', filename='images/cross.png') }}" alt="Failed">
         <h2>Transaction Failed</h2>
         <p>Unfortunately, your payment could not be processed.</p>
+
         {% if error %}
             <p class="error">{{ error }}</p>
         {% endif %}
-        <a href="{{ url_for('index') }}">Try Again</a>
+
+        <!-- Retry button -->
+        <a id="retryBtn" href="{{ url_for('index') }}">Try Again</a>
+
+        <!-- Lockout countdown -->
+        {% if locked %}
+            <p id="countdown"></p>
+        {% endif %}
     </div>
 
+    <!-- JavaScript -->
     <script>
-    {% if error %}
-        alert("Payment failed: {{ error|tojson }}");
-    {% endif %}
-</script>
+        // Convert server variables into JS safely
+        var locked = {{ locked|tojson }};
+        var remaining = {{ remaining|tojson }};
 
+        if (locked === true) {
+            var btn = document.getElementById("retryBtn");
+            if (btn) btn.style.pointerEvents = "none";  // disable click
+            if (btn) btn.style.background = "#aa5555";
+
+            var countdownEl = document.getElementById("countdown");
+            countdownEl.innerHTML = "You can try again in " + remaining + " seconds";
+
+            var interval = setInterval(function () {
+                remaining -= 1;
+
+                if (remaining <= 0) {
+                    clearInterval(interval);
+                    window.location.href = "{{ url_for('index') }}";
+                } else {
+                    countdownEl.innerHTML = "You can try again in " + remaining + " seconds";
+                }
+            }, 1000);
+        }
+    </script>
 </body>
 </html>
